@@ -1,0 +1,430 @@
+---
+description: "Правила стилизации в FSD React проекте"
+globs: ["**/*.{css,scss,module.css,module.scss,styled.ts}"]
+alwaysApply: true
+---
+
+# Styling Rules
+
+## 🎨 Подходы к стилизации
+
+### ТОЛЬКО CSS Modules + BEM
+**ОБЯЗАТЕЛЬНО**: Используй ТОЛЬКО модульный CSS/SCSS с BEM методологией!
+
+```typescript
+// Component.tsx
+import styles from './Component.module.scss';
+
+export const Component = () => {
+  return (
+    <div className={styles.component}>
+      <h1 className={styles.component__title}>Hello</h1>
+      <button className={`${styles.component__button} ${styles['component__button--primary']}`}>
+        Click me
+      </button>
+    </div>
+  );
+};
+```
+
+```scss
+/* Component.module.scss */
+.component {
+  padding: 16px;
+  border-radius: 8px;
+
+  &__title {
+    color: var(--color-primary);
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  &__button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    
+    &--primary {
+      background-color: var(--color-primary);
+      color: white;
+    }
+    
+    &--secondary {
+      background-color: transparent;
+      color: var(--color-primary);
+      border: 1px solid var(--color-primary);
+    }
+  }
+}
+```
+
+### BEM Именование в CSS Modules
+- **Блок**: `.component`
+- **Элемент**: `.component__element`  
+- **Модификатор**: `.component__element--modifier`
+- **Состояние**: `.component__element--active`, `.component__element--disabled`
+
+## 📁 Организация стилей по FSD
+
+### Shared UI стили
+```
+shared/ui/
+├── Button/
+│   ├── Button.tsx
+│   ├── Button.module.css
+│   └── index.ts
+└── styles/
+    ├── globals.css       # Глобальные стили
+    ├── variables.css     # CSS переменные
+    └── reset.css        # Reset стили
+```
+
+### Компонент-специфичные стили
+```
+features/auth/
+├── ui/
+│   ├── LoginForm/
+│   │   ├── LoginForm.tsx
+│   │   ├── LoginForm.module.scss  # ТОЛЬКО .scss или .css
+│   │   └── index.ts
+│   └── index.ts
+└── index.ts
+```
+
+## 🔧 CSS Variables
+
+### Цветовая система
+```css
+/* shared/ui/styles/variables.css */
+:root {
+  /* Primary Colors */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-light: #dbeafe;
+
+  /* Semantic Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #06b6d4;
+
+  /* Neutral Colors */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-900: #111827;
+
+  /* Typography */
+  --font-family-base: 'Inter', system-ui, sans-serif;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
+```
+
+### Dark Theme Support
+```css
+[data-theme='dark'] {
+  --color-primary: #60a5fa;
+  --color-gray-50: #1f2937;
+  --color-gray-900: #f9fafb;
+}
+```
+
+## 📱 Responsive Design
+
+### Breakpoints
+```css
+/* Mobile First подход */
+.container {
+  padding: var(--spacing-sm);
+}
+
+/* Tablet */
+@media (min-width: 768px) {
+  .container {
+    padding: var(--spacing-md);
+  }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .container {
+    padding: var(--spacing-lg);
+  }
+}
+```
+
+### CSS Container Queries
+```css
+.card {
+  container-type: inline-size;
+}
+
+@container (min-width: 300px) {
+  .card-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+```
+
+## 🏗️ Layout Patterns
+
+### Flexbox Utilities
+```css
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-md {
+  gap: var(--spacing-md);
+}
+```
+
+### Grid Layouts
+```css
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.sidebar-layout {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: var(--spacing-lg);
+}
+```
+
+## 🎯 Компонент стили
+
+### Button Component
+```css
+/* shared/ui/Button/Button.module.css */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.secondary {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+.large {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-lg);
+}
+```
+
+### Form Styles
+```css
+/* shared/ui/styles/forms.css */
+.form-field {
+  margin-bottom: var(--spacing-md);
+}
+
+.label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-gray-700);
+}
+
+.input {
+  width: 100%;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.input.error {
+  border-color: var(--color-error);
+}
+
+.error-message {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
+```
+
+## 🚫 Что КАТЕГОРИЧЕСКИ НЕ делать:
+
+1. **Styled Components** - ЗАПРЕЩЕНО! Используй только CSS Modules
+2. **Inline стили** в JSX (кроме динамических значений)
+3. **Обычный CSS без Modules** - только .module.css/.module.scss
+4. **Игнорирование BEM** - всегда следуй методологии
+5. **!important** - используй более специфичные селекторы
+6. **Глобальные стили** для компонентов
+7. **Hardcoded размеры** - используй CSS переменные
+
+## ✅ ОБЯЗАТЕЛЬНЫЕ Best Practices:
+
+1. **ТОЛЬКО CSS Modules** с расширениями .module.css или .module.scss
+2. **Строгое следование BEM** методологии
+3. **CSS переменные** для всех повторяющихся значений
+4. **Mobile First** responsive подход
+5. **SCSS вложенность** для читаемости BEM структуры
+6. **Accessibility** всегда в приоритете
+
+### Пример правильной BEM структуры:
+```scss
+// ✅ Правильно - BEM + CSS Modules
+.login-form {
+  max-width: 400px;
+  margin: 0 auto;
+  
+  &__field {
+    margin-bottom: var(--spacing-md);
+    
+    &--error {
+      .login-form__input {
+        border-color: var(--color-error);
+      }
+    }
+  }
+  
+  &__input {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-gray-300);
+    
+    &:focus {
+      border-color: var(--color-primary);
+    }
+  }
+  
+  &__button {
+    width: 100%;
+    padding: var(--spacing-md);
+    
+    &--primary {
+      background: var(--color-primary);
+      color: white;
+    }
+    
+    &--loading {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+  }
+}
+```
+
+```css
+/* Пример accessibility */
+.button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+```
+
+## 🎨 Animation Guidelines
+
+```css
+/* Простые переходы */
+.smooth {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Анимации для interactive элементов */
+.button {
+  transform: scale(1);
+  transition: transform 0.1s ease;
+}
+
+.button:active {
+  transform: scale(0.98);
+}
+
+/* Анимации loading состояний */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading {
+  animation: spin 1s linear infinite;
+}
+```

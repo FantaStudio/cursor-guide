@@ -1,0 +1,193 @@
+---
+description: "Правила для создания React компонентов в FSD архитектуре"
+globs: ["**/*.{tsx,jsx}"]
+alwaysApply: true
+---
+
+# React Components Rules
+
+## 🔧 Создание компонентов
+
+### Arrow Functions
+- Используй **arrow functions** для компонентов, НЕ function declarations
+- Всегда типизируй пропсы через типы (type), НЕ интерфейсы
+
+```typescript
+// ✅ Правильно
+type ButtonProps = {
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+export const Button = ({ title, onClick, disabled = false }: ButtonProps) => {
+  return (
+    <button onClick={onClick} disabled={disabled}>
+      {title}
+    </button>
+  );
+};
+
+// ❌ Неправильно
+interface ButtonProps {
+  title: string;
+}
+
+export function Button({ title }: ButtonProps) {
+  return <button>{title}</button>;
+}
+```
+
+### Структура компонента
+
+```
+component-name/
+├── index.ts              # Публичный API
+├── ui/
+│   ├── Component.tsx     # Основной компонент
+│   └── Component.module.css  # Стили (опционально)
+└── model/
+    └── types.ts         # Типы компонента
+```
+
+### Именование
+- **PascalCase** для компонентов: `LoginForm`, `UserCard`
+- **camelCase** для пропсов: `onClick`, `isLoading`
+- **kebab-case** для CSS классов: `user-card`, `login-form`
+
+### Условный рендеринг
+```typescript
+// ✅ Предпочтительно для boolean условий
+{isLoading && <Spinner />}
+
+// ✅ Для сложных условий
+{status === 'error' ? <ErrorMessage /> : <SuccessMessage />}
+
+// ❌ Избегай
+{isLoading ? <Spinner /> : null}
+```
+
+### Event Handlers
+```typescript
+// ✅ Правильное именование
+const handleSubmit = (event: FormEvent) => { ... };
+const handleUserClick = (userId: string) => { ... };
+
+// ❌ Слишком общие имена
+const onClick = () => { ... };
+const handler = () => { ... };
+
+// ✅ Пример в компоненте
+type FormProps = {
+  onSubmit: (data: FormData) => void;
+}
+
+export const Form = ({ onSubmit }: FormProps) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    onSubmit(formData);
+  };
+
+  return <form onSubmit={handleSubmit}>...</form>;
+};
+```
+
+### Children и Composition
+```typescript
+// ✅ Используй children для композиции
+type CardProps = {
+  title: string;
+  children: React.ReactNode;
+}
+
+export const Card = ({ title, children }: CardProps) => {
+  return (
+    <div className="card">
+      <h2>{title}</h2>
+      <div className="card-content">{children}</div>
+    </div>
+  );
+};
+```
+
+### Мемоизация
+- Используй `memo` для компонентов с частыми ре-рендерами
+- `useMemo` и `useCallback` только при реальной необходимости
+
+```typescript
+import { memo } from 'react';
+
+type ExpensiveComponentProps = {
+  data: ComplexData[];
+  onUpdate: (id: string) => void;
+}
+
+export const ExpensiveComponent = memo(({ 
+  data, 
+  onUpdate 
+}: ExpensiveComponentProps) => {
+  // компонент
+  return <div>...</div>;
+});
+```
+
+## 🏗️ FSD Специфика
+
+### Публичный API (index.ts)
+```typescript
+// features/auth/index.ts
+export { LoginForm } from './ui/LoginForm';
+export { SignupForm } from './ui/SignupForm';
+export type { LoginData, SignupData } from './model/types';
+
+// Не экспортируй internal компоненты
+// export { LoginFormField } from './ui/LoginForm/Field'; // ❌
+```
+
+### Импорты в компонентах
+```typescript
+// ✅ Правильный порядок импортов
+import { useState, useEffect } from 'react';        // React
+import { useRouter } from 'react-router-dom';       // Внешние библиотеки
+import { userApi } from 'entities/user';            // Entities
+import { Button } from 'shared/ui';                 // Shared
+import './LoginForm.module.css';                    // Локальные стили
+```
+
+### Слой-специфичные правила
+
+**Pages компоненты:**
+- Только композиция, минимум логики
+- Используй widgets и features
+
+**Widget компоненты:**
+- Самодостаточные блоки
+- Могут иметь внутреннее состояние
+- Композиция features и entities
+
+**Feature компоненты:**
+- Конкретная бизнес-функциональность
+- Взаимодействие с entities через API
+- Собственная бизнес-логика
+
+**Shared UI компоненты:**
+- Максимально переиспользуемые
+- Без бизнес-логики
+- Контролируемые через пропсы
+
+## 🚫 Что НЕЛЬЗЯ делать:
+
+1. **Function declarations** - используй только arrow functions
+2. **Интерфейсы для пропсов** - используй только типы (type)
+3. **Экспорт внутренних компонентов** - только через публичный API
+4. **Сложная вложенность пропсов** без типизации
+5. **Игнорирование именования** event handlers
+
+## ✅ Обязательные правила:
+
+1. **Arrow functions** для всех компонентов
+2. **Types вместо interfaces** для пропсов
+3. **Строгая типизация** всех пропсов и событий
+4. **Мемоизация** только при необходимости
+5. **Читаемые имена** для event handlers

@@ -1,0 +1,245 @@
+---
+description: "Правила для работы с API в FSD архитектуре"
+globs: ["**/api/**/*.{ts,tsx}", "**/model/**/*.ts"]
+alwaysApply: true
+---
+
+# API Layer Rules
+
+## 🌐 Архитектура API
+
+### Расположение API кода
+- **entities/*/api/** - API методы для конкретных сущностей
+- **shared/api/** - базовые API утилиты, конфигурация
+- **НЕ в features** - features используют entities API
+
+```typescript
+// ✅ Правильная структура
+entities/user/api/
+├── index.ts          # Экспорт всех API методов
+├── userApi.ts        # CRUD операции с пользователем
+└── types.ts          # API типы и схемы
+
+shared/api/
+├── index.ts          # Экспорт базовых утилит
+├── base.ts           # Базовый API клиент
+├── types.ts          # Общие API типы
+└── interceptors.ts   # Interceptors для axios/fetch
+```
+
+## 🔌 API Клиент
+
+### Базовый API клиент
+```typescript
+// shared/api/base.ts
+import axios from 'axios';
+
+export const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Interceptors для токенов
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+```
+
+### Entity API
+```typescript
+// entities/user/api/userApi.ts
+import { apiClient } from 'shared/api';
+import type { User, CreateUserData, UpdateUserData } from '../model/types';
+
+export const userApi = {
+  // Получить пользователя
+  async getUser(id: string): Promise<User> {
+    const response = await apiClient.get<User>(`/users/${id}`);
+    return response.data;
+  },
+
+  // Получить список пользователей
+  async getUsers(params?: { page?: number; limit?: number }): Promise<User[]> {
+    const response = await apiClient.get<User[]>('/users', { params });
+    return response.data;
+  },
+
+  // Создать пользователя
+  async createUser(data: CreateUserData): Promise<User> {
+    const response = await apiClient.post<User>('/users', data);
+    return response.data;
+  },
+
+  // Обновить пользователя
+  async updateUser(id: string, data: UpdateUserData): Promise<User> {
+    const response = await apiClient.put<User>(`/users/${id}`, data);
+    return response.data;
+  },
+
+  // Удалить пользователя
+  async deleteUser(id: string): Promise<void> {
+    await apiClient.delete(`/users/${id}`);
+  },
+};
+```
+
+## 📝 Типизация API
+
+### API Response Types
+```typescript
+// shared/api/types.ts
+export interface ApiResponse<T> {
+  data: T;
+  message: string;
+  status: 'success' | 'error';
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface ApiError {
+  message: string;
+  code: string;
+  details?: Record<string, string>;
+}
+```
+
+### Entity Types
+```typescript
+// entities/user/model/types.ts
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateUserData {
+  email: string;
+  name: string;
+  password: string;
+}
+
+export interface UpdateUserData {
+  name?: string;
+  avatar?: string;
+}
+
+// API специфичные типы
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  token: string;
+  refreshToken: string;
+}
+```
+
+## ⚡ React Query Integration
+
+### Query Keys
+```typescript
+// entities/user/api/queryKeys.ts
+export const userQueryKeys = {
+  all: ['users'] as const,
+  lists: () => [...userQueryKeys.all, 'list'] as const,
+  list: (params?: object) => [...userQueryKeys.lists(), params] as const,
+  details: () => [...userQueryKeys.all, 'detail'] as const,
+  detail: (id: string) => [...userQueryKeys.details(), id] as const,
+};
+```
+
+### Custom Hooks
+```typescript
+// entities/user/api/hooks.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { userApi } from './userApi';
+import { userQueryKeys } from './queryKeys';
+
+export const useUser = (id: string) => {
+  return useQuery({
+    queryKey: userQueryKeys.detail(id),
+    queryFn: () => userApi.getUser(id),
+    enabled: !!id,
+  });
+};
+
+export const useUsers = (params?: { page?: number; limit?: number }) => {
+  return useQuery({
+    queryKey: userQueryKeys.list(params),
+    queryFn: () => userApi.getUsers(params),
+  });
+};
+
+export const useCreateUser = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: userApi.createUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userQueryKeys.lists() });
+    },
+  });
+};
+```
+
+## 🔄 Error Handling
+
+### API Error Handler
+```typescript
+// shared/api/errorHandler.ts
+import { AxiosError } from 'axios';
+import { ApiError } from './types';
+
+export const handleApiError = (error: AxiosError<ApiError>) => {
+  if (error.response) {
+    // Сервер ответил с ошибкой
+    const { data, status } = error.response;
+    console.error(`API Error ${status}:`, data.message);
+    return data;
+  } else if (error.request) {
+    // Запрос не дошел до сервера
+    console.error('Network Error:', error.message);
+    return { message: 'Network error', code: 'NETWORK_ERROR' };
+  } else {
+    // Другая ошибка
+    console.error('Error:', error.message);
+    return { message: 'Unknown error', code: 'UNKNOWN_ERROR' };
+  }
+};
+```
+
+## 🚫 Что НЕЛЬЗЯ делать:
+
+1. **API вызовы в features** - используй entities API
+2. **Прямые fetch в компонентах** - используй кастомные хуки
+3. **Дублирование API методов** в разных местах
+4. **Отсутствие типизации** API ответов
+5. **Игнорирование ошибок** API
+
+## ✅ Best Practices:
+
+1. **Централизованная обработка ошибок**
+2. **Единообразные query keys** для React Query
+3. **Типизация всех API ответов**
+4. **Кеширование через React Query**
+5. **Optimistic updates** для лучшего UX

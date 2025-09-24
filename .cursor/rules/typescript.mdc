@@ -1,0 +1,380 @@
+---
+description: "Правила использования TypeScript в FSD React проекте"
+globs: ["**/*.{ts,tsx}"]
+alwaysApply: true
+---
+
+# TypeScript Rules
+
+## 🔷 Общие правила типизации
+
+### Строгие настройки TypeScript
+```json
+// tsconfig.json (рекомендуемые настройки)
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true
+  }
+}
+```
+
+### Именование типов
+```typescript
+// ✅ Правильно
+interface UserProps {           // Props для компонентов
+  name: string;
+}
+
+type UserRole = 'admin' | 'user';  // Union types
+type UserData = Pick<User, 'name' | 'email'>;  // Utility types
+
+enum UserStatus {               // Enums в PascalCase
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
+// ❌ Неправильно
+interface IUser { }             // Избегай префикс I
+type userRole = 'admin';        // camelCase для типов
+interface user_props { }        // snake_case
+```
+
+## 🏗️ FSD Типизация
+
+### Entity Types
+```typescript
+// entities/user/model/types.ts
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  profile?: UserProfile;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserProfile {
+  avatar?: string;
+  bio?: string;
+  location?: string;
+}
+
+export type UserRole = 'admin' | 'moderator' | 'user';
+
+// API types
+export interface CreateUserData {
+  email: string;
+  name: string;
+  password: string;
+}
+
+export interface UpdateUserData extends Partial<Pick<User, 'name'>> {
+  profile?: Partial<UserProfile>;
+}
+```
+
+### Feature Types
+```typescript
+// features/auth/model/types.ts
+export interface LoginFormData {
+  email: string;
+  password: string;
+  remember?: boolean;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+export interface AuthActions {
+  login: (data: LoginFormData) => Promise<void>;
+  logout: () => void;
+  refreshToken: () => Promise<void>;
+}
+```
+
+## ⚛️ React + TypeScript
+
+### Component Props
+```typescript
+// ✅ Типы для пропсов
+type ButtonProps = {
+  children: React.ReactNode;
+  variant?: 'primary' | 'secondary';
+  size?: 'small' | 'medium' | 'large';
+  disabled?: boolean;
+  onClick?: () => void;
+}
+
+// Для расширяемых компонентов
+type ButtonProps = {
+  variant?: 'primary' | 'secondary';
+  size?: 'small' | 'medium' | 'large';
+} & React.ButtonHTMLAttributes<HTMLButtonElement>
+
+export const Button = ({ 
+  children, 
+  variant = 'primary', 
+  size = 'medium',
+  ...props 
+}: ButtonProps) => {
+  return (
+    <button 
+      className={cn(styles.button, styles[variant], styles[size])} 
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+```
+
+### Event Handlers
+```typescript
+// ✅ Правильная типизация событий
+type FormProps = {
+  onSubmit: (data: FormData) => void;
+}
+
+export const Form = ({ onSubmit }: FormProps) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    onSubmit(formData);
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log(event.target.value);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input onChange={handleInputChange} />
+    </form>
+  );
+};
+```
+
+### Hooks типизация
+```typescript
+// ✅ Custom hooks
+type UseUserReturn = {
+  user: User | null;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+}
+
+export const useUser = (id: string): UseUserReturn => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ... логика
+
+  return { user, isLoading, error, refetch };
+};
+
+// Типизация useState
+const [count, setCount] = useState<number>(0);
+const [users, setUsers] = useState<User[]>([]);
+const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+```
+
+## 🛠️ Utility Types
+
+### Создание производных типов
+```typescript
+// entities/user/model/types.ts
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  password: string;  // sensitive data
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Публичная версия без пароля
+export type PublicUser = Omit<User, 'password'>;
+
+// Данные для создания пользователя
+export type CreateUserData = Pick<User, 'email' | 'name'> & {
+  password: string;
+};
+
+// Данные для обновления
+export type UpdateUserData = Partial<Pick<User, 'name' | 'email'>>;
+
+// Form data
+export interface UserFormData extends Pick<User, 'name' | 'email'> {
+  confirmPassword?: string;
+}
+```
+
+### Generic Types
+```typescript
+// shared/types/api.ts
+export interface ApiResponse<T> {
+  data: T;
+  message: string;
+  success: boolean;
+}
+
+export interface PaginatedData<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// Использование
+type UserResponse = ApiResponse<User>;
+type UsersResponse = ApiResponse<PaginatedData<User>>;
+```
+
+### Conditional Types
+```typescript
+// Пример advanced типизации
+type NonNullable<T> = T extends null | undefined ? never : T;
+
+type ApiEndpoint<T> = T extends 'user' 
+  ? '/api/users'
+  : T extends 'product'
+  ? '/api/products'
+  : never;
+
+// Mapped Types
+type FormFieldErrors<T> = {
+  [K in keyof T]?: string;
+};
+
+interface UserForm {
+  email: string;
+  name: string;
+}
+
+type UserFormErrors = FormFieldErrors<UserForm>;
+// { email?: string; name?: string; }
+```
+
+## 📝 Type Guards
+
+```typescript
+// entities/user/lib/guards.ts
+export function isUser(value: unknown): value is User {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'id' in value &&
+    'email' in value &&
+    typeof (value as any).id === 'string' &&
+    typeof (value as any).email === 'string'
+  );
+}
+
+export function isUserArray(value: unknown): value is User[] {
+  return Array.isArray(value) && value.every(isUser);
+}
+
+// Использование
+function processUserData(data: unknown) {
+  if (isUser(data)) {
+    // data is User
+    console.log(data.email); // TypeScript знает что это User
+  }
+}
+```
+
+## 🔧 Конфигурация и Environment
+
+```typescript
+// shared/config/env.ts
+interface EnvironmentConfig {
+  API_URL: string;
+  APP_NAME: string;
+  IS_DEVELOPMENT: boolean;
+  IS_PRODUCTION: boolean;
+}
+
+function createConfig(): EnvironmentConfig {
+  const apiUrl = process.env.REACT_APP_API_URL;
+  const appName = process.env.REACT_APP_NAME;
+
+  if (!apiUrl || !appName) {
+    throw new Error('Missing required environment variables');
+  }
+
+  return {
+    API_URL: apiUrl,
+    APP_NAME: appName,
+    IS_DEVELOPMENT: process.env.NODE_ENV === 'development',
+    IS_PRODUCTION: process.env.NODE_ENV === 'production',
+  };
+}
+
+export const config = createConfig();
+
+// Type-safe environment переменные
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv {
+      REACT_APP_API_URL: string;
+      REACT_APP_NAME: string;
+      NODE_ENV: 'development' | 'production' | 'test';
+    }
+  }
+}
+```
+
+## 🚫 Чего избегать:
+
+1. **any** - используй unknown или конкретные типы
+2. **as** assertions без type guards
+3. **Опциональные поля** там где они не нужны
+4. **Слишком сложные** generic типы
+5. **Дублирование типов** между слоями
+
+## ✅ Best Practices:
+
+1. **Строгая типизация** всех функций и переменных
+2. **Type guards** для runtime проверок
+3. **Utility types** для создания производных типов
+4. **Branded types** для ID и других примитивов
+5. **Exhaustive checks** в switch statements
+
+```typescript
+// Branded types пример
+type UserId = string & { readonly brand: unique symbol };
+type ProductId = string & { readonly brand: unique symbol };
+
+function createUserId(id: string): UserId {
+  return id as UserId;
+}
+
+// Exhaustive check
+type Status = 'loading' | 'success' | 'error';
+
+function handleStatus(status: Status) {
+  switch (status) {
+    case 'loading':
+      return 'Loading...';
+    case 'success':
+      return 'Success!';
+    case 'error':
+      return 'Error occurred';
+    default:
+      // TypeScript ошибка если не все cases покрыты
+      const exhaustive: never = status;
+      return exhaustive;
+  }
+}
+```
