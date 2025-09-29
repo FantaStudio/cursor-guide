@@ -8,3 +8,4 @@ export const userApi = {
         api.post(`/users/${id}`, data),
 };
 
+
