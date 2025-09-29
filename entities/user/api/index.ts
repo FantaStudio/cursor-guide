@@ -7,3 +7,4 @@ export const userApi = {
     updateUser: (id: string, data: Partial<User>): Promise<User> =>
         api.post(`/users/${id}`, data),
 };
+

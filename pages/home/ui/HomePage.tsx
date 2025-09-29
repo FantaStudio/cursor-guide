@@ -6,3 +6,4 @@ export const HomePage = () => {
         </div>
     );
 };
+

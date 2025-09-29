@@ -3,3 +3,4 @@ export const cn = (...classes: (string | undefined)[]) =>
 
 export const formatDate = (date: Date) =>
     new Intl.DateTimeFormat("ru-RU").format(date);
+
